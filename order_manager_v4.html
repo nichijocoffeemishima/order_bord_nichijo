@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Board — Coffee Truck</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0e0c; --surface: #1a1916; --surface2: #221f1b;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --cream: #f5f0e8; --muted: #7a7568; --muted2: #504d46;
+    --accent: #c8963e; --accent-dim: rgba(200,150,62,0.15);
+    --green: #5a9a6f; --green-bg: rgba(90,154,111,0.12);
+    --red: #c0533a; --red-bg: rgba(192,83,58,0.12);
+    --purple: #8b6fc7; --purple-bg: rgba(139,111,199,0.12);
+    --font-mono: 'DM Mono', monospace; --font-serif: 'Shippori Mincho', serif;
+  }
+  body { background: var(--bg); color: var(--cream); font-family: var(--font-mono); min-height: 100vh; }
+
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 12px; flex-wrap: wrap; }
+  .logo { font-family: var(--font-serif); font-size: 17px; font-weight: 600; white-space: nowrap; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .header-stats { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+  .header-stats strong { color: var(--cream); font-weight: 500; }
+  .sync-time { font-size: 11px; color: var(--muted2); white-space: nowrap; }
+
+  .icon-btn { display: flex; align-items: center; gap: 5px; padding: 6px 11px; border: 1px solid var(--border2); background: transparent; color: var(--muted); font-family: var(--font-mono); font-size: 11px; border-radius: 6px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .icon-btn:hover { color: var(--cream); }
+  .icon-btn.accent { border-color: rgba(200,150,62,0.4); color: var(--accent); }
+  .icon-btn.accent:hover { background: var(--accent-dim); }
+  .icon-btn.purple { border-color: rgba(139,111,199,0.4); color: var(--purple); }
+  .icon-btn.purple:hover { background: var(--purple-bg); }
+  .icon-btn.danger:hover { color: var(--red); border-color: var(--red); }
+  .icon-btn.spinning svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .setup-banner { background: var(--accent-dim); border: 1px solid rgba(200,150,62,0.3); border-radius: 8px; margin: 14px 20px; padding: 12px 16px; font-size: 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .setup-banner.hidden { display: none; }
+  .setup-banner input { flex: 1; min-width: 200px; background: var(--bg); border: 1px solid var(--border2); border-radius: 5px; color: var(--cream); font-family: var(--font-mono); font-size: 12px; padding: 7px 10px; outline: none; }
+  .setup-banner input:focus { border-color: var(--accent); }
+  .setup-save { padding: 7px 14px; background: var(--accent); color: #0f0e0c; border: none; border-radius: 5px; font-family: var(--font-mono); font-size: 12px; font-weight: 500; cursor: pointer; }
+
+  .controls { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+  .filter-tabs { display: flex; gap: 4px; margin-left: auto; }
+  .filter-tab { padding: 5px 11px; border: 1px solid var(--border2); background: transparent; color: var(--muted); font-family: var(--font-mono); font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; }
+  .filter-tab.active { color: var(--accent); border-color: var(--accent); }
+
+  .board { padding: 18px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+
+  .order-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: border-color 0.2s, transform 0.15s; }
+  .order-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .order-card.done { border-color: rgba(90,154,111,0.3); opacity: 0.6; }
+
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px 9px; border-bottom: 1px solid var(--border); }
+  .order-nums { line-height: 1; }
+  .order-num { font-size: 22px; font-weight: 500; color: var(--accent); }
+  .order-serial { font-size: 10px; color: var(--muted2); margin-top: 1px; }
+  .order-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .status-badge { display: flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .status-badge.pending { background: var(--red-bg); color: var(--red); border: 1px solid rgba(192,83,58,0.25); }
+  .status-badge.done { background: var(--green-bg); color: var(--green); border: 1px solid rgba(90,154,111,0.25); }
+  .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .status-badge.pending .status-dot { animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .card-body { padding: 11px 13px; }
+  .item-list { list-style: none; }
+  .item-list li { font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .item-list li:last-child { border-bottom: none; }
+
+  .line-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-top: 7px; }
+  .line-badge.registered { background: rgba(90,154,111,0.15); color: var(--green); }
+  .line-badge.unregistered { background: rgba(255,255,255,0.04); color: var(--muted2); }
+
+  .card-footer { display: flex; gap: 7px; padding: 9px 13px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+
+  .btn-done { flex: 1; min-width: 90px; padding: 7px; border: 1px solid rgba(90,154,111,0.4); background: var(--green-bg); color: var(--green); border-radius: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .btn-done:hover { background: rgba(90,154,111,0.22); }
+  .btn-done.undo { border-color: var(--border2); background: transparent; color: var(--muted); }
+  .btn-done:disabled { opacity: 0.35; cursor: default; }
+
+  .btn-notify { flex: 1; min-width: 90px; padding: 7px; border: 1px solid rgba(200,150,62,0.4); background: var(--accent-dim); color: var(--accent); border-radius: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .btn-notify:hover { background: rgba(200,150,62,0.25); }
+  .btn-notify:disabled { opacity: 0.35; cursor: default; }
+
+  .empty-state { grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--muted2); font-size: 14px; }
+
+  /* モーダル */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; padding: 26px; width: 100%; max-width: 420px; margin: 16px; }
+  .modal h2 { font-family: var(--font-serif); font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+  .modal p { font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.05em; }
+  .field input, .field textarea { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; color: var(--cream); font-family: var(--font-mono); font-size: 13px; padding: 8px 11px; outline: none; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .modal-footer { display: flex; gap: 9px; margin-top: 4px; }
+  .btn-cancel { flex: 1; padding: 9px; border: 1px solid var(--border2); background: transparent; color: var(--muted); border-radius: 6px; font-family: var(--font-mono); font-size: 12px; cursor: pointer; }
+  .btn-submit { flex: 2; padding: 9px; border: none; background: var(--accent); color: #0f0e0c; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; font-weight: 500; cursor: pointer; }
+  .btn-submit:hover { opacity: 0.88; }
+  .btn-danger { flex: 2; padding: 9px; border: none; background: var(--red); color: #fff; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; font-weight: 500; cursor: pointer; opacity: 0.9; }
+  .btn-danger:hover { opacity: 1; }
+  .btn-purple { flex: 2; padding: 9px; border: none; background: var(--purple); color: #fff; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; font-weight: 500; cursor: pointer; opacity: 0.9; }
+  .btn-purple:hover { opacity: 1; }
+
+  .coupon-preview { background: var(--surface2); border: 1px dashed var(--border2); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .coupon-preview strong { color: var(--cream); }
+
+  .toast { position: fixed; bottom: 22px; right: 22px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 11px 16px; font-size: 12px; color: var(--cream); z-index: 200; transform: translateY(80px); opacity: 0; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); max-width: 280px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(90,154,111,0.5); }
+  .toast.line { border-color: rgba(200,150,62,0.5); }
+  .toast.error { border-color: rgba(192,83,58,0.5); }
+  .toast.coupon { border-color: rgba(139,111,199,0.5); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Coffee <span>Truck</span></div>
+  <div class="header-right">
+    <div class="header-stats">
+      <div>待ち <strong id="stat-pending">—</strong></div>
+      <div>提供済 <strong id="stat-done">—</strong></div>
+      <div>本日 <strong id="stat-total">—</strong></div>
+    </div>
+    <span class="sync-time" id="sync-time">未同期</span>
+    <button class="icon-btn" id="sync-btn" onclick="loadOrders()">
+      <svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M11.5 6.5A5 5 0 1 1 6.5 1.5M11.5 1.5v5h-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      更新
+    </button>
+    <button class="icon-btn accent" onclick="openModal('register-modal')">+ 番号登録</button>
+    <button class="icon-btn purple" onclick="openModal('coupon-modal')">🎟 クーポン発行</button>
+    <button class="icon-btn danger" onclick="openModal('reset-modal')">
+      <svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M2 3h9M5 3V2h3v1M10 3l-.5 8h-5L4 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      リセット
+    </button>
+  </div>
+</header>
+
+<div class="setup-banner" id="setup-banner">
+  <span style="color:var(--accent);font-size:12px;white-space:nowrap;">初期設定</span>
+  <input type="text" id="gas-url-input" placeholder="GASのウェブアプリURLを貼り付け">
+  <button class="setup-save" onclick="saveGasUrl()">保存して接続</button>
+</div>
+
+<div class="controls">
+  <span style="font-size:11px;color:var(--muted);">Square連携 · 自動更新60秒</span>
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="setFilter('all',this)">すべて</button>
+    <button class="filter-tab" onclick="setFilter('pending',this)">未提供</button>
+    <button class="filter-tab" onclick="setFilter('done',this)">提供済</button>
+  </div>
+</div>
+
+<div class="board" id="board">
+  <div class="empty-state">GASのURLを設定して接続してください</div>
+</div>
+
+<!-- リセットモーダル -->
+<div class="modal-overlay" id="reset-modal">
+  <div class="modal">
+    <h2>本日のデータをリセット</h2>
+    <p>全注文データを削除します。番号札カウンターも1番に戻ります。<br>この操作は元に戻せません。営業終了後に実行してください。</p>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('reset-modal')">キャンセル</button>
+      <button class="btn-danger" onclick="resetData()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 番号登録モーダル（リピーター用） -->
+<div class="modal-overlay" id="register-modal">
+  <div class="modal">
+    <h2>番号を手動登録</h2>
+    <p>友だち追加済みのお客様の番号を手動で紐づけます。<br>番号札の番号とLINE UserIDを入力してください。</p>
+    <div class="field">
+      <label>番号札の番号</label>
+      <input type="number" id="reg-num" placeholder="例: 5" min="1">
+    </div>
+    <div class="field">
+      <label>LINE UserID（Uから始まる文字列）</label>
+      <input type="text" id="reg-userid" placeholder="例: U1234567890abcdef...">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('register-modal')">キャンセル</button>
+      <button class="btn-submit" onclick="submitRegister()">登録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- クーポン発行モーダル -->
+<div class="modal-overlay" id="coupon-modal">
+  <div class="modal">
+    <h2>🎟 クーポン発行</h2>
+    <p>本日LINE登録済みの全お客様にクーポンを一斉送信します。</p>
+    <div class="field">
+      <label>クーポン内容</label>
+      <textarea id="coupon-text" placeholder="例: 次回ご来店時、ドリンク1杯100円引き&#10;有効期限: 2025年12月31日"></textarea>
+    </div>
+    <div class="coupon-preview" id="coupon-preview">
+      <strong>送信プレビュー：</strong><br>
+      🎟 クーポンが届きました！<br><br>
+      <span id="preview-text" style="color:var(--cream);">（クーポン内容がここに表示されます）</span><br><br>
+      ※次回ご来店時にスタッフにお見せください。
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('coupon-modal')">キャンセル</button>
+      <button class="btn-purple" onclick="sendCoupon()">一斉送信する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var GAS_URL = localStorage.getItem('gas_url') || '';
+var orders  = [];
+var filter  = 'all';
+var autoRefreshTimer = null;
+
+window.addEventListener('load', function() {
+  if (GAS_URL) {
+    document.getElementById('setup-banner').classList.add('hidden');
+    loadOrders();
+    startAutoRefresh();
+  }
+  // クーポンプレビューのリアルタイム更新
+  document.getElementById('coupon-text').addEventListener('input', function() {
+    var text = this.value || '（クーポン内容がここに表示されます）';
+    document.getElementById('preview-text').textContent = text;
+  });
+});
+
+function saveGasUrl() {
+  var url = document.getElementById('gas-url-input').value.trim();
+  if (!url.startsWith('https://script.google.com')) { showToast('正しいGASのURLを入力してください', 'error'); return; }
+  localStorage.setItem('gas_url', url);
+  GAS_URL = url;
+  document.getElementById('setup-banner').classList.add('hidden');
+  loadOrders();
+  startAutoRefresh();
+  showToast('接続しました', 'success');
+}
+
+function loadOrders() {
+  if (!GAS_URL) return;
+  var btn = document.getElementById('sync-btn');
+  btn.classList.add('spinning');
+  fetch(GAS_URL + '?t=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      orders = data.orders || [];
+      render();
+      var now = new Date();
+      document.getElementById('sync-time').textContent =
+        now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ' 同期';
+      btn.classList.remove('spinning');
+    })
+    .catch(function() { showToast('データ取得に失敗しました', 'error'); btn.classList.remove('spinning'); });
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(loadOrders, 60000);
+}
+
+function postAction(payload) {
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload),
+  }).then(function(r) { return r.json(); });
+}
+
+// 提供完了トグル（通し番号で管理）
+function toggleDone(serialNum, currentStatus) {
+  var action = currentStatus === '未提供' ? 'markDone' : 'markUndone';
+  orders.forEach(function(o) {
+    if (o.serialNum == serialNum) {
+      o.status = action === 'markDone' ? '提供済' : '未提供';
+      if (action === 'markUndone') o.notified = '';
+    }
+  });
+  render();
+  postAction({ action: action, serialNum: serialNum })
+    .then(function(res) { if (!res.success) { loadOrders(); showToast('更新に失敗しました', 'error'); } });
+}
+
+// LINE通知（通し番号で管理）
+function notify(serialNum, ticketNum) {
+  postAction({ action: 'notify', serialNum: serialNum })
+    .then(function(res) {
+      if (res.success) {
+        orders.forEach(function(o) { if (o.serialNum == serialNum) o.notified = '通知済'; });
+        render();
+        showToast('No.' + ticketNum + ' にLINE通知しました', 'line');
+      } else {
+        showToast('LINE通知に失敗しました', 'error');
+      }
+    });
+}
+
+// リセット
+function resetData() {
+  closeModal('reset-modal');
+  postAction({ action: 'resetData' })
+    .then(function(res) {
+      if (res.success) { orders = []; render(); showToast('データをリセットしました', 'success'); }
+      else showToast('リセットに失敗しました', 'error');
+    });
+}
+
+// 手動番号登録
+function submitRegister() {
+  var num    = parseInt(document.getElementById('reg-num').value);
+  var userId = document.getElementById('reg-userid').value.trim();
+  if (isNaN(num) || num < 1) { showToast('番号を入力してください', 'error'); return; }
+  if (!userId.startsWith('U') || userId.length < 20) { showToast('正しいUserIDを入力してください', 'error'); return; }
+  postAction({ action: 'registerManual', ticketNum: num, userId: userId })
+    .then(function(res) {
+      if (res.success) { closeModal('register-modal'); loadOrders(); showToast('No.' + num + ' のLINE登録完了', 'success'); }
+      else showToast(res.error || '登録に失敗しました', 'error');
+    });
+}
+
+// クーポン一斉送信
+function sendCoupon() {
+  var text = document.getElementById('coupon-text').value.trim();
+  if (!text) { showToast('クーポン内容を入力してください', 'error'); return; }
+  closeModal('coupon-modal');
+  postAction({ action: 'sendCoupon', couponText: text })
+    .then(function(res) {
+      if (res.success) showToast(res.sentCount + '人にクーポンを送信しました', 'coupon');
+      else showToast('送信に失敗しました', 'error');
+    });
+}
+
+function setFilter(f, el) {
+  filter = f;
+  document.querySelectorAll('.filter-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  render();
+}
+
+function render() {
+  var filtered = orders.filter(function(o) {
+    if (filter === 'pending') return o.status === '未提供';
+    if (filter === 'done')    return o.status === '提供済';
+    return true;
+  });
+  filtered.sort(function(a, b) {
+    if (a.status !== b.status) return a.status === '未提供' ? -1 : 1;
+    return a.serialNum - b.serialNum;
+  });
+
+  var board = document.getElementById('board');
+  if (filtered.length === 0) {
+    board.innerHTML = '<div class="empty-state">該当する注文はありません</div>';
+  } else {
+    board.innerHTML = filtered.map(function(o) {
+      var isDone     = o.status === '提供済';
+      var isNotified = o.notified === '通知済';
+      var hasLine    = o.lineUserId && o.lineUserId.toString().length > 10;
+
+      var itemsHtml = (o.items || '商品情報なし').split('、').map(function(item) {
+        return '<li>' + item + '</li>';
+      }).join('');
+
+      var lineBadge = hasLine
+        ? '<div class="line-badge registered">LINE登録済</div>'
+        : '<div class="line-badge unregistered">LINE未登録</div>';
+
+      // フッターボタンのロジック
+      var footer = '';
+      if (isDone) {
+        footer = '<button class="btn-done undo" onclick="toggleDone(' + o.serialNum + ',\'' + o.status + '\')">⟲ 未提供に戻す</button>';
+      } else if (hasLine) {
+        // LINE登録済み：「LINE通知」→「提供完了」の順（LINE通知後に提供完了が押せる）
+        footer = '<button class="btn-notify" onclick="notify(' + o.serialNum + ',' + o.num + ')" '
+          + (isNotified ? 'disabled' : '') + '>'
+          + (isNotified ? '通知済' : 'LINE通知') + '</button>'
+          + '<button class="btn-done" onclick="toggleDone(' + o.serialNum + ',\'' + o.status + '\')" '
+          + (!isNotified ? 'disabled' : '') + '>✓ 提供完了</button>';
+      } else {
+        // LINE未登録：「提供完了」のみ
+        footer = '<button class="btn-done" onclick="toggleDone(' + o.serialNum + ',\'' + o.status + '\')">✓ 提供完了</button>';
+      }
+
+      return '<div class="order-card ' + (isDone ? 'done' : '') + '">'
+        + '<div class="card-header">'
+        +   '<div class="order-nums">'
+        +     '<div class="order-num">#' + String(o.num).padStart(3,'0') + '</div>'
+        +     '<div class="order-serial">通し #' + o.serialNum + '</div>'
+        +     '<div class="order-time">' + (o.time || '—') + '</div>'
+        +   '</div>'
+        +   '<div class="status-badge ' + (isDone ? 'done' : 'pending') + '">'
+        +     '<div class="status-dot"></div>' + (isDone ? '提供済' : '待ち中') + '</div>'
+        + '</div>'
+        + '<div class="card-body">'
+        +   '<ul class="item-list">' + itemsHtml + '</ul>'
+        +   lineBadge
+        + '</div>'
+        + '<div class="card-footer">' + footer + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  var pending = orders.filter(function(o){ return o.status === '未提供'; }).length;
+  var done    = orders.filter(function(o){ return o.status === '提供済'; }).length;
+  document.getElementById('stat-pending').textContent = pending;
+  document.getElementById('stat-done').textContent    = done;
+  document.getElementById('stat-total').textContent   = orders.length;
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(function(el) {
+  el.addEventListener('click', function(e) { if (e.target === el) el.classList.remove('open'); });
+});
+
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.className = 'toast'; }, 3000);
+}
+</script>
+</body>
+</html>
